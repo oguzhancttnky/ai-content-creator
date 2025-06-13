@@ -189,7 +189,7 @@ num_inference_steps = 20
 guidance_scale = 3.5
 ```
 
-## Cost Estimation Monthly
+## Cost Estimation Monthly (1 video/day)
 
 | Service | Usage | Cost |
 |---------|-------|------|
