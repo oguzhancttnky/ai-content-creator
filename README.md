@@ -196,7 +196,7 @@ guidance_scale = 3.5
 | AWS Lambda | 30 executions | ~$0.01 |
 | AWS S3 | 300-600MB | ~$0,01 |
 | RunPod GPU | ~8-10h (On Demand A40 $0.4/hr) | ~$4 | 
-| Deepseek API | 300.000 token | ~$0,03 |
+| Deepseek API | 600.000 token | ~$0,1 |
 | ElevenLabs | 30.000 token | $5 |
 | **Total** | | **~$9/month** |
 
