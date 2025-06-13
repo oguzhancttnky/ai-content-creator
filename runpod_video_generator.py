@@ -49,7 +49,7 @@ def generate_video_from_images(transcript_data, audio_path, output_path, s3_buck
         pipe.to("cuda")
         print("FLUX.1-dev model loaded successfully")
     except Exception as e:
-        print(f"✗ Error loading model: {str(e)}")
+        print(f"Error loading model: {str(e)}")
         raise e
 
     # Get audio and clip data
@@ -132,7 +132,7 @@ def generate_video_from_images(transcript_data, audio_path, output_path, s3_buck
             print(f"Clip {i + 1} processed successfully")
 
         except Exception as e:
-            print(f"✗ Error generating image for clip {i + 1}: {str(e)}")
+            print(f"Error generating image for clip {i + 1}: {str(e)}")
             # Create a fallback clip (solid color with text) with proper timing
             fallback_clip = (
                 ColorClip(
@@ -234,7 +234,7 @@ def process_video_job(job_data):
 
     except Exception as e:
         error_msg = f"Error during video generation: {str(e)}"
-        print(f"✗ {error_msg}")
+        print(f"{error_msg}")
         print(f"Traceback: {traceback.format_exc()}")
 
         try:
@@ -254,7 +254,7 @@ def process_video_job(job_data):
             )
             print(f"Error metadata uploaded: {error_key}")
         except Exception as meta_error:
-            print(f"✗ Failed to upload error metadata: {str(meta_error)}")
+            print(f"Failed to upload error metadata: {str(meta_error)}")
 
         return {
             "success": False,
@@ -277,9 +277,9 @@ def stop_pod():
             response = requests.post(stop_url, headers=headers)
             print(f"Pod stop request sent: {response.status_code}")
         else:
-            print("⚠ Missing pod stopping credentials")
+            print("Missing pod stopping credentials")
     except Exception as e:
-        print(f"✗ Error stopping RunPod instance: {str(e)}")
+        print(f"Error stopping RunPod instance: {str(e)}")
 
 
 # Flask app setup
@@ -310,7 +310,7 @@ def process_video_async():
         }), 202  # HTTP 202 Accepted
 
     except Exception as e:
-        print(f"✗ Failed to start video processing: {e}")
+        print(f"Failed to start video processing: {e}")
         return jsonify({
             "success": False,
             "error": str(e)

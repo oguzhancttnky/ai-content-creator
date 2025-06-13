@@ -8,6 +8,12 @@ import re
 import random
 import uuid
 
+DEEPSEEK_API_KEY = os.environ['DEEPSEEK_API_KEY']
+ELEVENLABS_API_KEY = os.environ['ELEVENLABS_API_KEY']
+S3_BUCKET = os.environ['S3_BUCKET']
+RUNPOD_API_KEY = os.environ['RUNPOD_API_KEY']
+RUNPOD_POD_ID = os.environ['RUNPOD_POD_ID']
+
 def clean_text(text):
     return re.sub(r'[^\w\s.,?!:\']', '', text)  # \w = letters/numbers, \s = whitespace characters, .,?!:' are allowed
 
@@ -21,6 +27,21 @@ def find_string_timestamps(word_timestamps, target_string):
             return word_timestamps[i]['start'], word_timestamps[i + n - 1]['end'], clip_word_timestamps
 
     return None, None, None
+
+def stop_pod():
+    count = 0
+    while count < 10:
+        try:
+            print("=== Stopping RunPod instance ===")
+            stop_url = f"https://rest.runpod.io/v1/pods/{RUNPOD_POD_ID}/stop"
+            headers = {"Authorization": f"Bearer {RUNPOD_API_KEY}"}
+            response = requests.post(stop_url, headers=headers)
+            print(f"Pod stop request sent: {response.status_code}")
+            break
+        except Exception as e:
+            print(f"Error stopping RunPod instance: {str(e)}")
+            count += 1
+            time.sleep(10)
 
 def get_random_story():
     url = "https://shortstories-api.onrender.com/"
@@ -39,19 +60,12 @@ def lambda_handler(event, context):
         print(f"Event: {json.dumps(event)}")
         print(f"Context: {context}")
 
-        DEEPSEEK_API_KEY = os.environ['DEEPSEEK_API_KEY']
-        ELEVENLABS_API_KEY = os.environ['ELEVENLABS_API_KEY']
-        S3_BUCKET = os.environ['S3_BUCKET']
-        RUNPOD_API_KEY = os.environ['RUNPOD_API_KEY']
-        RUNPOD_POD_ID = os.environ['RUNPOD_POD_ID']
-        print("✓ All environment variables loaded successfully")
-
         s3_client = boto3.client('s3')
-        print("✓ S3 client initialized")
+        print("S3 client initialized")
 
         example_title, example_story, example_moral = get_random_story()
         if not example_title or not example_story or not example_moral:
-            print("✗ Failed to fetch example story from API")
+            print("Failed to fetch example story from API")
             raise Exception("No valid example story received from API")
 
         # Generate content using Deepseek API
@@ -173,7 +187,7 @@ def lambda_handler(event, context):
             content_data = json.loads(json_content)
             print(f"Parsed content data: {json.dumps(content_data, indent=2)}")
         except json.JSONDecodeError as json_err:
-            print(f"✗ JSON parsing error: {str(json_err)}")
+            print(f"JSON parsing error: {str(json_err)}")
             print(f"Attempting to fix common JSON issues...")
 
             fixed_json = json_content.replace('\n', ' ').replace('\t', ' ')
@@ -181,9 +195,9 @@ def lambda_handler(event, context):
 
             try:
                 content_data = json.loads(fixed_json)
-                print(f"✓ JSON parsed after fixing: {json.dumps(content_data, indent=2)}")
+                print(f"JSON parsed after fixing: {json.dumps(content_data, indent=2)}")
             except json.JSONDecodeError:
-                print(f"✗ Could not parse JSON even after fixes")
+                print(f"Could not parse JSON even after fixes")
                 raise json_err
 
         # Clean script text of Unicode characters
@@ -197,7 +211,7 @@ def lambda_handler(event, context):
                 script_text += " " + text
         print(f"Cleaned script text: {script_text}")
         print(f"Script text length: {len(script_text)} characters")
-        print("✓ Deepseek API call completed successfully")
+        print("Deepseek API call completed successfully")
         voices = [
                 "ZF6FPAbjXT4488VcRRnw", "8JVbfL6oEdmuxKn5DK2C","iCrDUkL56s3C8sCRl7wb", "1hlpeD1ydbI2ow0Tt3EW",
                 "EkK5I93UQWFDigLMpZcX", "EiNlNiXeDU1pqqOPrYMO", "AeRdCCKzvd23BpJoofzx", "xTZlmU8dKXdyk4XGYGFg",
@@ -239,7 +253,7 @@ def lambda_handler(event, context):
         if audio_content:
             import base64
             audio_bytes = base64.b64decode(audio_content)
-            print(f"✓ Audio content received: {len(audio_bytes)} bytes")
+            print(f"Audio content received: {len(audio_bytes)} bytes")
         else:
             raise Exception("No audio content received from ElevenLabs alignment API")
 
@@ -249,9 +263,9 @@ def lambda_handler(event, context):
         char_start_times = alignment.get('character_start_times_seconds', [])
         char_end_times = alignment.get('character_end_times_seconds', [])
         audio_duration = char_end_times[-1] if char_end_times else 0
-        print(f"✓ Audio duration: {audio_duration} seconds")
+        print(f"Audio duration: {audio_duration} seconds")
 
-        print(f"✓ Alignment data: {len(characters)} characters with timestamps")
+        print(f"Alignment data: {len(characters)} characters with timestamps")
 
         # Create word-level timestamps for video text overlays
         word_timestamps = []
@@ -274,7 +288,7 @@ def lambda_handler(event, context):
                     word_start_time = start_time
                 current_word += char
 
-        print(f"✓ Created {len(word_timestamps)} word timestamps")
+        print(f"Created {len(word_timestamps)} word timestamps")
 
         # Generate video prompts for each clip using Deepseek
         print("=== Generating image prompts for clips ===")
@@ -409,7 +423,7 @@ def lambda_handler(event, context):
                     "image_prompt": clip_prompts['image_prompt'],
                     "image_negative_prompt": clip_prompts['image_negative_prompt']
                 })
-                print(f"✓ Generated prompts for clip {clip_text}")
+                print(f"Generated prompts for clip {clip_text}")
             except json.JSONDecodeError:
                 start, end, clip_word_timestamps = find_string_timestamps(word_timestamps, clip_text)
                 # Fallback prompt if parsing fails
@@ -423,9 +437,9 @@ def lambda_handler(event, context):
                     "image_prompt": clip_text,
                     "image_negative_prompt": "blurry, low quality, shaky, irrelevant content"
                 })
-                print(f"⚠ Used fallback prompt for clip {clip_index}")
+                print(f"Used fallback prompt for clip {clip_index}")
 
-        print(f"✓ Generated image prompts for all {len(image_clips_data)} clips")
+        print(f"Generated image prompts for all {len(image_clips_data)} clips")
 
         # Generate unique ID for this video
         video_id = datetime.now(tz=timezone.utc).strftime("%d_%m_%Y_%H_%M_%S") + "_oguzhancttnky" + str(uuid.uuid4())
@@ -454,7 +468,7 @@ def lambda_handler(event, context):
             Body=json.dumps(transcript_data, indent=2),
             ContentType='application/json'
         )
-        print("✓ Transcript with timestamps uploaded to S3 successfully")
+        print("Transcript with timestamps uploaded to S3 successfully")
 
         # Upload metadata to S3 (complete content data for social media publishing)
         print("=== Uploading metadata to S3 ===")
@@ -478,7 +492,7 @@ def lambda_handler(event, context):
             Body=json.dumps(metadata, indent=2),
             ContentType='application/json'
         )
-        print("✓ Metadata uploaded to S3 successfully")
+        print("Metadata uploaded to S3 successfully")
 
         # Upload MP3 voiceover to S3
         print("=== Uploading MP3 to S3 ===")
@@ -490,7 +504,7 @@ def lambda_handler(event, context):
             Body=audio_bytes,
             ContentType='audio/mpeg'
         )
-        print("✓ MP3 uploaded to S3 successfully")
+        print("MP3 uploaded to S3 successfully")
 
         # Start RunPod instance
         print("=== Starting RunPod instance ===")
@@ -502,7 +516,7 @@ def lambda_handler(event, context):
 
         while retry_count < 60:
             if start_response.status_code == 200:
-                print("✓ Pod started, waiting for Flask server...")
+                print("Pod started, waiting for Flask server...")
 
                 runpod_payload = {
                     "s3_bucket": S3_BUCKET,
@@ -546,7 +560,7 @@ def lambda_handler(event, context):
                     print(f"Check {i + 1}: Runtime = {runtime}")
 
                     if runtime and runtime.get('uptimeInSeconds') is not None:
-                        print("✓ Pod is now running!")
+                        print("Pod is now running!")
 
                         time.sleep(10)
 
@@ -555,37 +569,37 @@ def lambda_handler(event, context):
                         print(f"Payload: {json.dumps(runpod_payload, indent=2)}")
 
                         try:
-                            # Call Flask directly (no Authorization header needed for pod endpoints)
-                            response = requests.post(flask_url, json=runpod_payload, timeout=600)  # 10 minute timeout
+                            response = requests.post(flask_url, json=runpod_payload, timeout=300)  # 5 minute timeout
                             print(f"Flask response status: {response.status_code}")
                             print(f"Flask response: {response.text}")
 
-                            if response.status_code == 200:
+                            if response.status_code == 202:
                                 result = response.json()
-                                print(f"✓ Success: {result}")
+                                print(f"Success: {result}")
                                 return result
                             else:
-                                print(f"✗ Flask error: {response.status_code}")
+                                print(f"Flask error: {response.status_code}")
                                 return None
 
                         except requests.exceptions.Timeout:
-                            print("⚠ Request timed out video generation might still be running")
+                            print("Request timed out video generation might still be running")
                             return None
                         except Exception as e:
-                            print(f"✗ Error calling Flask: {str(e)}")
+                            print(f"Error calling Flask: {str(e)}")
+                            stop_pod()
                             return None
                     else:
                         print(f"Pod still starting... waiting 10 seconds")
                         time.sleep(10)
             else:
-                print(f"✗ Failed to start pod: {start_response.text}")
+                print(f"Failed to start pod: {start_response.text}")
                 retry_count += 1
                 time.sleep(60)
         return None
 
     except Exception as e:
         error_msg = f"Error occurred: {str(e)}"
-        print(f"✗ {error_msg}")
+        print(f"{error_msg}")
         print(f"Exception type: {type(e).__name__}")
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
